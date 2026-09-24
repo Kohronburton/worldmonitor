@@ -34,11 +34,12 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Situation',  icon: '🌍', query: "Summarize today's geopolitical situation" },
-  { label: 'Markets',    icon: '📈', query: 'Key market moves, macro signals, and commodity moves today' },
-  { label: 'Conflicts',  icon: '⚔️',  query: 'Top active conflicts and military developments' },
-  { label: 'Forecasts',  icon: '🔮', query: 'Active forecasts and prediction market outlook' },
-  { label: 'Risk',       icon: '⚠️',  query: 'Highest risk countries and instability hotspots' },
+  { label: 'Geo Brief',       icon: '🌍', query: "Summarize today's geopolitical situation and the developments that matter most" },
+  { label: 'Equity Research', icon: '📊', query: 'Research a public company or ticker: catalyst, price context, news, thesis, risks, and what to watch' },
+  { label: 'Market Impact',   icon: '📈', query: 'Connect the top geopolitical developments to sectors, equities, commodities, FX, and rates' },
+  { label: 'Conflicts',       icon: '⚔️', query: 'Top active conflicts and military developments' },
+  { label: 'Forecasts',       icon: '🔮', query: 'Active forecasts and prediction market outlook' },
+  { label: 'Risk',            icon: '⚠️', query: 'Highest risk countries and instability hotspots' },
 ];
 
 const DOMAINS = [
@@ -160,7 +161,7 @@ export class ChatAnalystPanel extends Panel {
   constructor() {
     super({
       id: 'chat-analyst',
-      title: 'WM Analyst',
+      title: 'Geopolitical & Equity Researcher',
       premium: 'locked',
       defaultRowSpan: 2,
       infoTooltip: t('components.chatAnalyst.infoTooltip'),
@@ -205,7 +206,7 @@ export class ChatAnalystPanel extends Panel {
     const inputRow = h('div', { className: 'chat-analyst-input-row' });
     const textarea = document.createElement('textarea');
     textarea.className = 'chat-analyst-input';
-    textarea.placeholder = 'Ask the analyst...';
+    textarea.placeholder = 'Ask about a country, conflict, ticker, sector, commodity, or macro risk...';
     textarea.rows = 2;
     this.inputEl = textarea;
 
@@ -361,7 +362,7 @@ export class ChatAnalystPanel extends Panel {
     const bubble = h('div', { className: 'chat-msg chat-msg-assistant' },
       h('div', { className: 'chat-msg-label' }, 'ANALYST'),
       h('div', { className: 'chat-msg-body' },
-        'Ready. I have live context across geopolitical, market, military, and economic domains. Ask anything.',
+        'Ready. I connect geopolitical signals to market and equity impact using the live WorldMonitor context. Ask about a country, conflict, ticker, sector, commodity, or macro risk.',
       ),
     );
     replaceChildren(this.messagesEl, bubble);

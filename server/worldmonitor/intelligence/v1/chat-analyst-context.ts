@@ -180,19 +180,38 @@ export function buildForecasts(data: unknown): string {
   return lines.length ? `Active Forecasts:\n${lines.join('\n')}` : '';
 }
 
-export function buildMarketData(stocks: unknown, commodities: unknown): string {
+export function buildMarketData(stocks: unknown, commodities: unknown, userQuery?: string): string {
   const parts: string[] = [];
 
   if (stocks && typeof stocks === 'object') {
     const d = stocks as Record<string, unknown>;
     const quotes = Array.isArray(d.quotes) ? d.quotes : [];
-    const stockLines = quotes.slice(0, 6).map((q: unknown) => {
+    const query = String(userQuery ?? '').toUpperCase();
+    const queryTokens = new Set(query.split(/[^A-Z0-9.^=-]+/).filter(Boolean));
+
+    // Equity questions should not lose the named ticker/company just because the
+    // bootstrap cache contains a broad market universe. Prefer direct symbol or
+    // company-name matches, then preserve the existing feed order.
+    const rankedQuotes = quotes
+      .map((q: unknown, index: number) => {
+        const quote = q as Record<string, unknown>;
+        const symbol = safeStr(quote.symbol || quote.ticker).trim().toUpperCase();
+        const name = safeStr(quote.name || quote.shortName || quote.longName).trim().toUpperCase();
+        let score = 0;
+        if (query && symbol && queryTokens.has(symbol)) score += 100;
+        if (query && name && name.length >= 3 && query.includes(name)) score += 80;
+        return { q, index, score };
+      })
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map(({ q }) => q);
+
+    const stockLines = rankedQuotes.slice(0, 6).map((q: unknown) => {
       const quote = q as Record<string, unknown>;
       const sym = sanitizeForPromptLine(safeStr(quote.symbol || quote.ticker));
       const price = safeNum(quote.price ?? quote.regularMarketPrice);
       const chg = safeNum(quote.changePercent ?? quote.regularMarketChangePercent);
       if (!sym || !price) return null;
-      return `${sym} $${price.toFixed(2)} (${formatChange(chg)})`;
+      return `${sym} ${price.toFixed(2)} (${formatChange(chg)})`;
     }).filter((l): l is string => l !== null);
     if (stockLines.length) parts.push(`Equities: ${stockLines.join(', ')}`);
   }
@@ -1088,7 +1107,7 @@ export async function assembleAnalystContext(
     riskScores: buildRiskScores(get(riskResult)),
     marketImplications: buildMarketImplications(get(marketImplResult)),
     forecasts: buildForecasts(get(forecastsResult)),
-    marketData: buildMarketData(get(stocksResult), commoditiesData),
+    marketData: buildMarketData(get(stocksResult), commoditiesData, userQuery),
     macroSignals: buildMacroSignals(get(macroResult)),
     energyExposure: buildEnergyExposure(get(energyExposureResult)),
     coalSpotPrice: needsSpotEnergy ? buildSpotCommodityLine(get(commoditiesResult), 'MTF=F', 'Newcastle coal', '$', '/t') : '',
