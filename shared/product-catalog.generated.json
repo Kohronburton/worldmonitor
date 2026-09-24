@@ -262,15 +262,15 @@
       "localeKey": "pro",
       "description": "Full intelligence dashboard",
       "features": [
-        "Everything in Free — panels, sources & followed countries uncapped",
         "Pro Research Desk — geopolitical + equity research in one workflow",
         "Decision-grade AI briefings — what changed, why it matters & what to watch",
         "Geopolitics → commodities, FX, rates, sectors & equity transmission analysis",
         "AI stock analysis, backtesting & market-impact research",
-        "Scenario, cost-shock & supply-chain stress testing",
         "Intel memory — historical search, timelines & similar events",
+        "Scenario, cost-shock & supply-chain stress testing",
         "Scheduled AI digest + alert rules engine",
         "MCP access for Claude, GPT & other compatible AI clients (50 calls/day)",
+        "Everything in Free — panels, sources & followed countries uncapped",
         "Custom widgets & 10 dashboards (vs 3)"
       ],
       "highlightFeatures": [
