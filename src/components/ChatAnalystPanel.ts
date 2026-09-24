@@ -15,6 +15,19 @@ import {
 import { classifyDenialResponse, type ClientEntitlementBelief } from '@/services/premium-denial';
 import { reportEntitlementDesync } from '@/services/entitlement-desync-telemetry';
 import { trackAnalystControlAction } from '@/services/analytics';
+import { getMarketWatchlistEntries } from '@/services/market-watchlist';
+import {
+  buildEnterpriseReportHtml,
+  buildWatchlistBriefQuery,
+  buildWhatChangedQuery,
+  createMissionTitle,
+  loadLastEnterpriseBrief,
+  loadResearchMissions,
+  saveLastEnterpriseBrief,
+  saveResearchMissions,
+  upsertResearchMission,
+  type ResearchMission,
+} from '@/services/enterprise-research-desk';
 import { h, replaceChildren, setTrustedHtml, trustedHtml, type TrustedHtml } from '@/utils/dom-utils';
 import {
   isDashboardControlAction,
@@ -26,6 +39,7 @@ import {
 const API_URL = '/api/chat-analyst';
 const MAX_HISTORY = 20;
 const DASHBOARD_CONTROL_STORAGE_KEY = 'wm-analyst-dashboard-control-enabled';
+const ENTERPRISE_AGENT_STORAGE_KEY = 'wm-analyst-enterprise-agent-enabled';
 
 interface QuickAction {
   label: string;
@@ -34,6 +48,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Mission Brief',   icon: '🛰️', query: 'Give me a decision-grade enterprise mission brief: what changed, why it matters, cross-domain impact, key uncertainties, and what to watch next' },
   { label: 'Morning Brief',   icon: '⚡', query: 'Give me a decision-grade morning brief: what changed, why it matters, market transmission, and what to watch next' },
   { label: 'Geo Brief',       icon: '🌍', query: "Summarize today's highest-signal geopolitical developments, separate confirmed facts from inference, and tell me what changed" },
   { label: 'Equity Research', icon: '📊', query: 'Research a public company or ticker using available WorldMonitor context: catalyst, price context, relevant news, thesis, risks, and what to watch' },
@@ -143,6 +158,20 @@ function saveDashboardControlEnabled(enabled: boolean): void {
   } catch { /* storage unavailable */ }
 }
 
+function loadEnterpriseAgentEnabled(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(ENTERPRISE_AGENT_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveEnterpriseAgentEnabled(enabled: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(ENTERPRISE_AGENT_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch { /* storage unavailable */ }
+}
+
 export class ChatAnalystPanel extends Panel {
   private history: ChatMessage[] = [];
   private domainFocus = 'all';
@@ -151,6 +180,12 @@ export class ChatAnalystPanel extends Panel {
   private dashboardActionHandler: DashboardActionHandler | null = null;
   private dashboardControlEnabled = loadDashboardControlEnabled();
   private dashboardControlPaused = false;
+  private enterpriseAgentEnabled = loadEnterpriseAgentEnabled();
+  private missions: ResearchMission[] = loadResearchMissions();
+  private selectedMissionId: string | null = null;
+  private latestMeta: MetaEvent | null = null;
+  private evidenceEl: HTMLElement | null = null;
+  private missionSelectEl: HTMLSelectElement | null = null;
   private messagesEl!: HTMLElement;
   private inputEl: HTMLTextAreaElement | null = null;
   private controlToggleEl: HTMLInputElement | null = null;
@@ -187,6 +222,8 @@ export class ChatAnalystPanel extends Panel {
     }
 
     const controlBar = this.createDashboardControlBar();
+    const researchDeskBar = this.createResearchDeskBar();
+    const evidenceDrawer = this.createEvidenceDrawer();
 
     // Messages container
     const messages = h('div', { className: 'chat-analyst-messages' });
@@ -221,6 +258,8 @@ export class ChatAnalystPanel extends Panel {
 
     wrapper.appendChild(chipBar);
     wrapper.appendChild(controlBar);
+    wrapper.appendChild(researchDeskBar);
+    wrapper.appendChild(evidenceDrawer);
     wrapper.appendChild(messages);
     wrapper.appendChild(quickBar);
     wrapper.appendChild(inputRow);
@@ -231,7 +270,201 @@ export class ChatAnalystPanel extends Panel {
 
     this.showWelcome();
     this.updateDashboardControlUi();
+    this.refreshMissionSelect();
+    this.renderEvidenceDrawer();
     this.attachListeners();
+  }
+
+  private createResearchDeskBar(): HTMLElement {
+    const bar = h('div', { className: 'chat-research-desk-bar' });
+
+    const label = h('span', { className: 'chat-research-desk-label' }, 'Research Desk');
+
+    const select = document.createElement('select');
+    select.className = 'chat-research-mission-select';
+    select.dataset.researchSelect = 'mission';
+    select.setAttribute('aria-label', 'Saved Enterprise missions');
+    this.missionSelectEl = select;
+
+    const saveBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'save-mission' },
+      type: 'button',
+    }, 'Save Mission');
+
+    const loadBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'load-mission' },
+      type: 'button',
+    }, 'Load');
+
+    const watchBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'watchlist-brief' },
+      type: 'button',
+    }, 'Watchlist Brief');
+
+    const changedBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'what-changed' },
+      type: 'button',
+    }, 'What Changed');
+
+    const evidenceBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'toggle-evidence' },
+      type: 'button',
+    }, 'Evidence');
+
+    const reportBtn = h('button', {
+      className: 'chat-quick-btn',
+      dataset: { action: 'enterprise-report' },
+      type: 'button',
+    }, 'Report');
+
+    bar.append(label, select, saveBtn, loadBtn, watchBtn, changedBtn, evidenceBtn, reportBtn);
+    return bar;
+  }
+
+  private createEvidenceDrawer(): HTMLElement {
+    const drawer = h('div', {
+      className: 'chat-evidence-drawer',
+      hidden: true,
+    });
+    this.evidenceEl = drawer;
+    return drawer;
+  }
+
+  private refreshMissionSelect(): void {
+    if (!this.missionSelectEl) return;
+    replaceChildren(this.missionSelectEl);
+
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = this.missions.length > 0 ? 'Saved missions…' : 'No saved missions';
+    this.missionSelectEl.appendChild(empty);
+
+    for (const mission of this.missions) {
+      const option = document.createElement('option');
+      option.value = mission.id;
+      option.textContent = mission.title;
+      if (mission.id === this.selectedMissionId) option.selected = true;
+      this.missionSelectEl.appendChild(option);
+    }
+  }
+
+  private saveCurrentMission(): void {
+    if (this.history.length === 0) return;
+    const now = new Date().toISOString();
+    const id = this.selectedMissionId ?? `mission-${Date.now()}`;
+    const existing = this.missions.find((m) => m.id === id);
+    const watchlist = getMarketWatchlistEntries().map((entry) => entry.display || entry.symbol);
+    const mission: ResearchMission = {
+      id,
+      title: existing?.title ?? createMissionTitle(this.history),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      domainFocus: this.domainFocus,
+      enterpriseAgent: this.enterpriseAgentEnabled,
+      history: this.history.slice(-MAX_HISTORY),
+      evidenceSources: this.latestMeta?.sources ?? existing?.evidenceSources ?? [],
+      watchlist,
+    };
+    this.missions = upsertResearchMission(this.missions, mission);
+    this.selectedMissionId = id;
+    try { saveResearchMissions(this.missions); } catch { /* local persistence unavailable */ }
+    this.refreshMissionSelect();
+  }
+
+  private loadSelectedMission(): void {
+    const id = this.missionSelectEl?.value || this.selectedMissionId;
+    if (!id) return;
+    const mission = this.missions.find((item) => item.id === id);
+    if (!mission) return;
+
+    this.streamAbort?.abort();
+    this.streamAbort = null;
+    this.isStreaming = false;
+    this.setSendDisabled(false);
+    this.history = mission.history.slice(-MAX_HISTORY);
+    this.selectedMissionId = mission.id;
+    this.domainFocus = mission.domainFocus;
+    this.enterpriseAgentEnabled = mission.enterpriseAgent;
+    saveEnterpriseAgentEnabled(this.enterpriseAgentEnabled);
+
+    replaceChildren(this.messagesEl);
+    for (const msg of this.history) this.appendMessage(msg.role, msg.content);
+    this.setDomain(this.domainFocus);
+    this.renderEvidenceDrawer({
+      sources: mission.evidenceSources,
+      degraded: false,
+    });
+    this.refreshMissionSelect();
+  }
+
+  private sendWatchlistBrief(): void {
+    const symbols = getMarketWatchlistEntries().map((entry) => entry.display || entry.symbol);
+    void this.send(buildWatchlistBriefQuery(symbols));
+  }
+
+  private sendWhatChanged(): void {
+    void this.send(buildWhatChangedQuery(loadLastEnterpriseBrief()));
+  }
+
+  private toggleEvidenceDrawer(): void {
+    if (!this.evidenceEl) return;
+    this.evidenceEl.hidden = !this.evidenceEl.hidden;
+    if (!this.evidenceEl.hidden) this.renderEvidenceDrawer();
+  }
+
+  private renderEvidenceDrawer(meta: MetaEvent | null = this.latestMeta): void {
+    if (!this.evidenceEl) return;
+    const sources = meta?.sources ?? [];
+    const mode = this.enterpriseAgentEnabled ? 'Enterprise agent' : 'Research desk';
+    const watchlist = getMarketWatchlistEntries().map((entry) => entry.display || entry.symbol);
+    replaceChildren(
+      this.evidenceEl,
+      h('div', { className: 'chat-evidence-title' }, 'Evidence & Scope'),
+      h('div', { className: 'chat-evidence-row' },
+        h('strong', {}, 'Mode: '),
+        document.createTextNode(mode),
+      ),
+      h('div', { className: 'chat-evidence-row' },
+        h('strong', {}, 'Live context: '),
+        document.createTextNode(sources.length > 0 ? sources.join(', ') : 'No source metadata captured yet'),
+      ),
+      h('div', { className: 'chat-evidence-row' },
+        h('strong', {}, 'Watchlist: '),
+        document.createTextNode(watchlist.length > 0 ? watchlist.join(', ') : 'No custom tickers'),
+      ),
+      h('div', { className: 'chat-evidence-row' },
+        h('strong', {}, 'Coverage: '),
+        document.createTextNode(meta?.degraded ? 'Partial / degraded' : 'Normal or not yet measured'),
+      ),
+    );
+  }
+
+  private exportEnterpriseReport(): void {
+    if (this.history.length === 0) return;
+    const mission = this.selectedMissionId
+      ? this.missions.find((item) => item.id === this.selectedMissionId)
+      : null;
+    const title = mission?.title ?? createMissionTitle(this.history);
+    const html = buildEnterpriseReportHtml({
+      title,
+      exportedAt: new Date().toISOString(),
+      domainFocus: this.domainFocus,
+      watchlist: getMarketWatchlistEntries().map((entry) => entry.display || entry.symbol),
+      evidenceSources: this.latestMeta?.sources ?? mission?.evidenceSources ?? [],
+      history: this.history,
+    });
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `worldmonitor-enterprise-report-${Date.now()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   private createDashboardControlBar(): HTMLElement {
@@ -245,6 +478,15 @@ export class ChatAnalystPanel extends Panel {
     label.appendChild(toggle);
     label.appendChild(document.createTextNode('Control dashboard'));
 
+    const enterpriseLabel = h('label', { className: 'chat-control-toggle-label' });
+    const enterpriseToggle = document.createElement('input');
+    enterpriseToggle.type = 'checkbox';
+    enterpriseToggle.className = 'chat-control-toggle';
+    enterpriseToggle.dataset.enterpriseToggle = 'agent';
+    enterpriseToggle.checked = this.enterpriseAgentEnabled;
+    enterpriseLabel.appendChild(enterpriseToggle);
+    enterpriseLabel.appendChild(document.createTextNode('Enterprise agent'));
+
     const status = h('span', { className: 'chat-control-status' });
     this.controlStatusEl = status;
 
@@ -256,6 +498,7 @@ export class ChatAnalystPanel extends Panel {
     this.controlPauseBtn = pauseBtn;
 
     bar.appendChild(label);
+    bar.appendChild(enterpriseLabel);
     bar.appendChild(status);
     bar.appendChild(pauseBtn);
     return bar;
@@ -292,13 +535,25 @@ export class ChatAnalystPanel extends Panel {
         else if (a === 'clear') this.clear();
         else if (a === 'export') this.exportChat();
         else if (a === 'toggle-control-pause') this.toggleDashboardControlPause();
+        else if (a === 'save-mission') this.saveCurrentMission();
+        else if (a === 'load-mission') this.loadSelectedMission();
+        else if (a === 'watchlist-brief') this.sendWatchlistBrief();
+        else if (a === 'what-changed') this.sendWhatChanged();
+        else if (a === 'toggle-evidence') this.toggleEvidenceDrawer();
+        else if (a === 'enterprise-report') this.exportEnterpriseReport();
       }
     });
 
     this.content.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement | null;
+      if (target?.dataset?.researchSelect === 'mission') {
+        this.selectedMissionId = target.value || null;
+        return;
+      }
       if (target?.dataset?.controlToggle === 'dashboard') {
         this.setDashboardControlEnabled(Boolean(target.checked));
+      } else if (target?.dataset?.enterpriseToggle === 'agent') {
+        this.setEnterpriseAgentEnabled(Boolean(target.checked));
       }
     });
 
@@ -323,6 +578,12 @@ export class ChatAnalystPanel extends Panel {
     if (!this.dashboardControlEnabled) return;
     this.dashboardControlPaused = !this.dashboardControlPaused;
     this.updateDashboardControlUi();
+  }
+
+  private setEnterpriseAgentEnabled(enabled: boolean): void {
+    this.enterpriseAgentEnabled = enabled;
+    saveEnterpriseAgentEnabled(enabled);
+    if (this.history.length === 0 && !this.isStreaming) this.showWelcome();
   }
 
   private updateDashboardControlUi(): void {
@@ -362,7 +623,9 @@ export class ChatAnalystPanel extends Panel {
     const bubble = h('div', { className: 'chat-msg chat-msg-assistant' },
       h('div', { className: 'chat-msg-label' }, 'ANALYST'),
       h('div', { className: 'chat-msg-body' },
-        'PRO RESEARCH DESK ONLINE. Ask for a briefing, investigate a ticker or country, or connect a geopolitical event to market impact.',
+        this.enterpriseAgentEnabled
+          ? 'ENTERPRISE AGENT ONLINE. Ask for a mission brief, investigate a ticker or country, connect geopolitical events to market impact, or enable dashboard control for supported operator actions.'
+          : 'PRO RESEARCH DESK ONLINE. Ask for a briefing, investigate a ticker or country, or connect a geopolitical event to market impact. Enable Enterprise agent for mission-oriented analysis.',
       ),
     );
     replaceChildren(this.messagesEl, bubble);
@@ -525,6 +788,9 @@ export class ChatAnalystPanel extends Panel {
     }
 
     this.appendMessage('user', trimmedQuery);
+    const outboundQuery = this.enterpriseAgentEnabled
+      ? `[ENTERPRISE AGENT MODE]\n${trimmedQuery}`
+      : trimmedQuery;
 
     const trimmedHistory = this.history.slice(-MAX_HISTORY).map((m) => ({
       role: m.role,
@@ -546,7 +812,7 @@ export class ChatAnalystPanel extends Panel {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           history: trimmedHistory,
-          query: trimmedQuery,
+          query: outboundQuery,
           domainFocus: this.domainFocus,
           // geoContext (ISO-2 country focus) is supported by the API but wired in Phase 2
           // when the panel can read the map's selected country. Agent callers can pass it directly.
@@ -574,6 +840,9 @@ export class ChatAnalystPanel extends Panel {
       if (finished === 'done') {
         this.finalizeStreamingBubble(streamingBody, accumulatedText, true);
         this.pushHistory(trimmedQuery, accumulatedText);
+        if (this.enterpriseAgentEnabled) {
+          try { saveLastEnterpriseBrief(accumulatedText); } catch { /* local persistence unavailable */ }
+        }
         return;
       }
 
@@ -647,7 +916,9 @@ export class ChatAnalystPanel extends Panel {
             return 'error';
           }
           if (payload.meta) {
+            this.latestMeta = payload.meta;
             this.renderSourceChips(bubble, payload.meta);
+            this.renderEvidenceDrawer(payload.meta);
           }
           if (payload.action) {
             this.renderActionChip(bubble, payload.action);
@@ -688,11 +959,15 @@ export class ChatAnalystPanel extends Panel {
 
   clear(): void {
     this.history = [];
+    this.selectedMissionId = null;
+    this.latestMeta = null;
     this.streamAbort?.abort();
     this.streamAbort = null;
     this.isStreaming = false;
     this.setSendDisabled(false);
     this.showWelcome();
+    this.renderEvidenceDrawer();
+    this.refreshMissionSelect();
   }
 
   private exportChat(): void {
