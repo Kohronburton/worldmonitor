@@ -34,11 +34,12 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Situation',  icon: '🌍', query: "Summarize today's geopolitical situation" },
-  { label: 'Markets',    icon: '📈', query: 'Key market moves, macro signals, and commodity moves today' },
-  { label: 'Conflicts',  icon: '⚔️',  query: 'Top active conflicts and military developments' },
-  { label: 'Forecasts',  icon: '🔮', query: 'Active forecasts and prediction market outlook' },
-  { label: 'Risk',       icon: '⚠️',  query: 'Highest risk countries and instability hotspots' },
+  { label: 'Morning Brief',   icon: '⚡', query: 'Give me a decision-grade morning brief: what changed, why it matters, market transmission, and what to watch next' },
+  { label: 'Geo Brief',       icon: '🌍', query: "Summarize today's highest-signal geopolitical developments, separate confirmed facts from inference, and tell me what changed" },
+  { label: 'Equity Research', icon: '📊', query: 'Research a public company or ticker using available WorldMonitor context: catalyst, price context, relevant news, thesis, risks, and what to watch' },
+  { label: 'Market Impact',   icon: '📈', query: 'Map the top geopolitical developments into commodities, FX, rates, sectors, and affected equities; explain each transmission path' },
+  { label: 'Risk Radar',      icon: '⚠️', query: 'Rank the highest-signal emerging risks by evidence, potential market impact, and indicators to watch without overstating certainty' },
+  { label: 'What Changed',    icon: 'Δ', query: 'What materially changed in the current intelligence picture, what is noise, and what deserves attention now?' },
 ];
 
 const DOMAINS = [
@@ -160,7 +161,7 @@ export class ChatAnalystPanel extends Panel {
   constructor() {
     super({
       id: 'chat-analyst',
-      title: 'WM Analyst',
+      title: 'Pro Research Desk',
       premium: 'locked',
       defaultRowSpan: 2,
       infoTooltip: t('components.chatAnalyst.infoTooltip'),
@@ -205,7 +206,7 @@ export class ChatAnalystPanel extends Panel {
     const inputRow = h('div', { className: 'chat-analyst-input-row' });
     const textarea = document.createElement('textarea');
     textarea.className = 'chat-analyst-input';
-    textarea.placeholder = 'Ask the analyst...';
+    textarea.placeholder = 'Research a ticker, country, conflict, sector, commodity, or macro risk...';
     textarea.rows = 2;
     this.inputEl = textarea;
 
@@ -361,7 +362,7 @@ export class ChatAnalystPanel extends Panel {
     const bubble = h('div', { className: 'chat-msg chat-msg-assistant' },
       h('div', { className: 'chat-msg-label' }, 'ANALYST'),
       h('div', { className: 'chat-msg-body' },
-        'Ready. I have live context across geopolitical, market, military, and economic domains. Ask anything.',
+        'PRO RESEARCH DESK ONLINE. Ask for a briefing, investigate a ticker or country, or connect a geopolitical event to market impact.',
       ),
     );
     replaceChildren(this.messagesEl, bubble);

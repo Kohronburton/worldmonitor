@@ -1335,6 +1335,23 @@ describe('#5857 — pure formatters cannot be tricked into forging a line', () =
     assertNoForgedBullet(out, 1, 'buildPredictionMarkets');
   });
 
+  it('buildMarketData: promotes a ticker explicitly named in the research query', () => {
+    const out = buildMarketData(
+      { quotes: [
+        { symbol: 'SPY', price: 500, changePercent: 0.2 },
+        { symbol: 'QQQ', price: 450, changePercent: 0.4 },
+        { symbol: 'MSFT', price: 510, changePercent: -0.3 },
+        { symbol: 'NVDA', price: 190, changePercent: 2.1 },
+        { symbol: 'META', price: 700, changePercent: 0.8 },
+        { symbol: 'AMZN', price: 230, changePercent: 0.6 },
+        { symbol: 'AAPL', price: 250, changePercent: 1.5 },
+      ] },
+      null,
+      'Research AAPL and its geopolitical exposure',
+    );
+    assert.ok(out.includes('Equities: AAPL $250.00 (+1.50%)'), `named ticker should lead the context; got:\n${out}`);
+  });
+
   it('buildMarketData: the equities AND commodities symbols are both guarded', () => {
     const poisonedEquity = buildMarketData(
       { quotes: [{ symbol: `SPY${FORGED_BULLET}`, price: 500, changePercent: 1.2 }] },

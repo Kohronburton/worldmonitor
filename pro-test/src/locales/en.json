@@ -34,15 +34,17 @@
         "cta": "Get Started"
       },
       "pro": {
-        "description": "Full intelligence dashboard",
+        "description": "Your geopolitical and equity research desk",
         "features": [
           "Everything in Free — panels, sources & followed countries uncapped",
-          "WM Analyst chat + AI stock analysis & backtesting",
-          "Cost-shock modelling & supply-chain stress tests",
+          "Pro Research Desk — geopolitical + equity research in one workflow",
+          "Decision-grade AI briefings — what changed, why it matters & what to watch",
+          "Geopolitics → commodities, FX, rates, sectors & equity transmission analysis",
+          "AI stock analysis, backtesting & market-impact research",
           "Intel memory — historical search, timelines & similar events",
-          "Physical metals divergence, minerals concentration & sovereign debt data",
+          "Scenario, cost-shock & supply-chain stress testing",
           "Scheduled AI digest + alert rules engine",
-          "MCP + SDK access for Claude Desktop & other AI clients (50 calls/day)",
+          "MCP access for Claude, GPT & other compatible AI clients (50 calls/day)",
           "Custom widgets & 10 dashboards (vs 3)"
         ],
         "highlightFeatures": [
@@ -667,12 +669,12 @@
       "freeF3": "Chokepoints, cables, cascade analysis",
       "freeF4": "Breaking alert pipeline & watchlists",
       "proTitle": "Pro",
-      "proDesc": "Act on it. The decision layer used in the moments above:",
-      "proF1": "WM Analyst — chat across live services, with citations",
-      "proF2": "Scenario engine auto-runs hourly on the forecast cron — game disruptions before they hit",
-      "proF3": "Personal AI digest — daily, twice-daily or weekly, to Slack, Telegram or email",
-      "proF4": "MCP, REST API & official SDKs — live tools under one key",
-      "proF5": "Custom widget builder for your own panels",
+      "proDesc": "Turn the global feed into a research workflow: brief it, investigate it, connect it to markets, and track what changes.",
+      "proF1": "Pro Research Desk — geopolitical + equity research from live WorldMonitor context",
+      "proF2": "Decision briefs — what changed, why it matters, market read-through, what to watch",
+      "proF3": "Scenario engine + scheduled AI digest for continuous monitoring",
+      "proF4": "MCP access — use WorldMonitor as live intelligence context in compatible AI clients",
+      "proF5": "Custom widgets, deeper research datasets & 10 dashboards",
       "cta": "See plans & pricing",
       "note": "From $39.99/mo · 3 months free when billed annually"
     },

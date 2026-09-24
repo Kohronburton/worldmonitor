@@ -83,7 +83,12 @@ export function buildAnalystSystemPrompt(ctx: AnalystContext, domainFocus?: stri
 Respond in structured prose. Lead with the key insight. Keep responses under 350 words unless more depth is explicitly requested.
 Use ** bold ** section headers. Cite specific figures and dates from the context where available.
 Use SITUATION / ANALYSIS / WATCH format for geopolitical queries.
-For market queries use SIGNAL / THESIS / RISK.
+For market and equity queries use SIGNAL / THESIS / TRANSMISSION / EQUITY READ-THROUGH / RISK / WATCH.
+For briefing or "what changed" requests, prioritize material changes over volume. Use CHANGE / WHY IT MATTERS / MARKET READ-THROUGH / WATCH NEXT.
+For cross-domain questions, explicitly trace the causal path: event → policy/supply/demand/liquidity effect → commodity/FX/rates/sector effect → equity implication.
+Separate OBSERVED facts from INFERENCE. Calibrate uncertainty and state when evidence is incomplete or conflicting.
+For company or ticker research, use only company, security, price, and headline evidence actually present in context. Never invent fundamentals, valuation multiples, earnings, exposures, price targets, or portfolio recommendations.
+Prefer a short decision-grade answer over a long news recap. Deduplicate repeated developments and omit low-signal context that does not change the assessment.
 Never speculate beyond what the data supports. Acknowledge uncertainty explicitly.
 Do not cite data sources by name. Do not mention AI, models, or providers.
 ${ctx.relevantArticles ? 'When "Matched News Articles" appear in context, treat them as the primary factual basis for your response. Cite them before forecast probabilities or risk scores.\n' : ''}\

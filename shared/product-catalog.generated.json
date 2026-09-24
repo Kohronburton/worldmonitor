@@ -39,7 +39,7 @@
         "currentForCheckout": true,
         "selfServe": true,
         "dashboardAiCallsPerDay": 500,
-        "description": "Everything in Free — panels, sources & followed countries uncapped, WM Analyst chat + AI stock analysis & backtesting, Cost-shock modelling & supply-chain stress tests, Intel memory — historical search, timelines & similar events, Physical metals divergence, minerals concentration & sovereign debt data, Scheduled AI digest + alert rules engine, MCP + SDK access for Claude Desktop & other AI clients (50 calls/day), Custom widgets & 10 dashboards (vs 3), Personal license, 1 named user"
+        "description": "Everything in Free — panels, sources & followed countries uncapped, Pro Research Desk — geopolitical + equity research in one workflow, Decision-grade AI briefings — what changed, why it matters & what to watch, Geopolitics → commodities, FX, rates, sectors & equity transmission analysis, AI stock analysis, backtesting & market-impact research, Intel memory — historical search, timelines & similar events, Scenario, cost-shock & supply-chain stress testing, Scheduled AI digest + alert rules engine, MCP access for Claude, GPT & other compatible AI clients (50 calls/day), Custom widgets & 10 dashboards (vs 3), Personal license, 1 named user"
       },
       {
         "planKey": "pro_annual",
@@ -263,12 +263,14 @@
       "description": "Full intelligence dashboard",
       "features": [
         "Everything in Free — panels, sources & followed countries uncapped",
-        "WM Analyst chat + AI stock analysis & backtesting",
-        "Cost-shock modelling & supply-chain stress tests",
+        "Pro Research Desk — geopolitical + equity research in one workflow",
+        "Decision-grade AI briefings — what changed, why it matters & what to watch",
+        "Geopolitics → commodities, FX, rates, sectors & equity transmission analysis",
+        "AI stock analysis, backtesting & market-impact research",
         "Intel memory — historical search, timelines & similar events",
-        "Physical metals divergence, minerals concentration & sovereign debt data",
+        "Scenario, cost-shock & supply-chain stress testing",
         "Scheduled AI digest + alert rules engine",
-        "MCP + SDK access for Claude Desktop & other AI clients (50 calls/day)",
+        "MCP access for Claude, GPT & other compatible AI clients (50 calls/day)",
         "Custom widgets & 10 dashboards (vs 3)"
       ],
       "highlightFeatures": [
