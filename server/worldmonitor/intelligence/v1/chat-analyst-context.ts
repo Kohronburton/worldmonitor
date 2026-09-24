@@ -180,13 +180,22 @@ export function buildForecasts(data: unknown): string {
   return lines.length ? `Active Forecasts:\n${lines.join('\n')}` : '';
 }
 
-export function buildMarketData(stocks: unknown, commodities: unknown): string {
+export function buildMarketData(stocks: unknown, commodities: unknown, userQuery?: string): string {
   const parts: string[] = [];
 
   if (stocks && typeof stocks === 'object') {
     const d = stocks as Record<string, unknown>;
     const quotes = Array.isArray(d.quotes) ? d.quotes : [];
-    const stockLines = quotes.slice(0, 6).map((q: unknown) => {
+    const queryTokens = new Set(String(userQuery ?? '').toUpperCase().split(/[^A-Z0-9.^=-]+/).filter(Boolean));
+    const rankedQuotes = quotes
+      .map((q: unknown, index: number) => {
+        const quote = q as Record<string, unknown>;
+        const symbol = safeStr(quote.symbol || quote.ticker).trim().toUpperCase();
+        return { q, index, score: symbol && queryTokens.has(symbol) ? 1 : 0 };
+      })
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map(({ q }) => q);
+    const stockLines = rankedQuotes.slice(0, 6).map((q: unknown) => {
       const quote = q as Record<string, unknown>;
       const sym = sanitizeForPromptLine(safeStr(quote.symbol || quote.ticker));
       const price = safeNum(quote.price ?? quote.regularMarketPrice);
@@ -1088,7 +1097,7 @@ export async function assembleAnalystContext(
     riskScores: buildRiskScores(get(riskResult)),
     marketImplications: buildMarketImplications(get(marketImplResult)),
     forecasts: buildForecasts(get(forecastsResult)),
-    marketData: buildMarketData(get(stocksResult), commoditiesData),
+    marketData: buildMarketData(get(stocksResult), commoditiesData, userQuery),
     macroSignals: buildMacroSignals(get(macroResult)),
     energyExposure: buildEnergyExposure(get(energyExposureResult)),
     coalSpotPrice: needsSpotEnergy ? buildSpotCommodityLine(get(commoditiesResult), 'MTF=F', 'Newcastle coal', '$', '/t') : '',
