@@ -26,6 +26,7 @@ import {
 const API_URL = '/api/chat-analyst';
 const MAX_HISTORY = 20;
 const DASHBOARD_CONTROL_STORAGE_KEY = 'wm-analyst-dashboard-control-enabled';
+const ENTERPRISE_AGENT_STORAGE_KEY = 'wm-analyst-enterprise-agent-enabled';
 
 interface QuickAction {
   label: string;
@@ -34,6 +35,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Mission Brief',   icon: '🛰️', query: 'Give me a decision-grade enterprise mission brief: what changed, why it matters, cross-domain impact, key uncertainties, and what to watch next' },
   { label: 'Morning Brief',   icon: '⚡', query: 'Give me a decision-grade morning brief: what changed, why it matters, market transmission, and what to watch next' },
   { label: 'Geo Brief',       icon: '🌍', query: "Summarize today's highest-signal geopolitical developments, separate confirmed facts from inference, and tell me what changed" },
   { label: 'Equity Research', icon: '📊', query: 'Research a public company or ticker using available WorldMonitor context: catalyst, price context, relevant news, thesis, risks, and what to watch' },
@@ -143,6 +145,20 @@ function saveDashboardControlEnabled(enabled: boolean): void {
   } catch { /* storage unavailable */ }
 }
 
+function loadEnterpriseAgentEnabled(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(ENTERPRISE_AGENT_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveEnterpriseAgentEnabled(enabled: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(ENTERPRISE_AGENT_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch { /* storage unavailable */ }
+}
+
 export class ChatAnalystPanel extends Panel {
   private history: ChatMessage[] = [];
   private domainFocus = 'all';
@@ -151,6 +167,7 @@ export class ChatAnalystPanel extends Panel {
   private dashboardActionHandler: DashboardActionHandler | null = null;
   private dashboardControlEnabled = loadDashboardControlEnabled();
   private dashboardControlPaused = false;
+  private enterpriseAgentEnabled = loadEnterpriseAgentEnabled();
   private messagesEl!: HTMLElement;
   private inputEl: HTMLTextAreaElement | null = null;
   private controlToggleEl: HTMLInputElement | null = null;
@@ -245,6 +262,15 @@ export class ChatAnalystPanel extends Panel {
     label.appendChild(toggle);
     label.appendChild(document.createTextNode('Control dashboard'));
 
+    const enterpriseLabel = h('label', { className: 'chat-control-toggle-label' });
+    const enterpriseToggle = document.createElement('input');
+    enterpriseToggle.type = 'checkbox';
+    enterpriseToggle.className = 'chat-control-toggle';
+    enterpriseToggle.dataset.enterpriseToggle = 'agent';
+    enterpriseToggle.checked = this.enterpriseAgentEnabled;
+    enterpriseLabel.appendChild(enterpriseToggle);
+    enterpriseLabel.appendChild(document.createTextNode('Enterprise agent'));
+
     const status = h('span', { className: 'chat-control-status' });
     this.controlStatusEl = status;
 
@@ -256,6 +282,7 @@ export class ChatAnalystPanel extends Panel {
     this.controlPauseBtn = pauseBtn;
 
     bar.appendChild(label);
+    bar.appendChild(enterpriseLabel);
     bar.appendChild(status);
     bar.appendChild(pauseBtn);
     return bar;
@@ -299,6 +326,8 @@ export class ChatAnalystPanel extends Panel {
       const target = e.target as HTMLInputElement | null;
       if (target?.dataset?.controlToggle === 'dashboard') {
         this.setDashboardControlEnabled(Boolean(target.checked));
+      } else if (target?.dataset?.enterpriseToggle === 'agent') {
+        this.setEnterpriseAgentEnabled(Boolean(target.checked));
       }
     });
 
@@ -323,6 +352,12 @@ export class ChatAnalystPanel extends Panel {
     if (!this.dashboardControlEnabled) return;
     this.dashboardControlPaused = !this.dashboardControlPaused;
     this.updateDashboardControlUi();
+  }
+
+  private setEnterpriseAgentEnabled(enabled: boolean): void {
+    this.enterpriseAgentEnabled = enabled;
+    saveEnterpriseAgentEnabled(enabled);
+    this.showWelcome();
   }
 
   private updateDashboardControlUi(): void {
@@ -362,7 +397,9 @@ export class ChatAnalystPanel extends Panel {
     const bubble = h('div', { className: 'chat-msg chat-msg-assistant' },
       h('div', { className: 'chat-msg-label' }, 'ANALYST'),
       h('div', { className: 'chat-msg-body' },
-        'PRO RESEARCH DESK ONLINE. Ask for a briefing, investigate a ticker or country, or connect a geopolitical event to market impact.',
+        this.enterpriseAgentEnabled
+          ? 'ENTERPRISE AGENT ONLINE. Ask for a mission brief, investigate a ticker or country, connect geopolitical events to market impact, or enable dashboard control for supported operator actions.'
+          : 'PRO RESEARCH DESK ONLINE. Ask for a briefing, investigate a ticker or country, or connect a geopolitical event to market impact. Enable Enterprise agent for mission-oriented analysis.',
       ),
     );
     replaceChildren(this.messagesEl, bubble);
@@ -525,6 +562,9 @@ export class ChatAnalystPanel extends Panel {
     }
 
     this.appendMessage('user', trimmedQuery);
+    const outboundQuery = this.enterpriseAgentEnabled
+      ? `[ENTERPRISE AGENT MODE]\n${trimmedQuery}`
+      : trimmedQuery;
 
     const trimmedHistory = this.history.slice(-MAX_HISTORY).map((m) => ({
       role: m.role,
@@ -546,7 +586,7 @@ export class ChatAnalystPanel extends Panel {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           history: trimmedHistory,
-          query: trimmedQuery,
+          query: outboundQuery,
           domainFocus: this.domainFocus,
           // geoContext (ISO-2 country focus) is supported by the API but wired in Phase 2
           // when the panel can read the map's selected country. Agent callers can pass it directly.
