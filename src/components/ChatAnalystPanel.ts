@@ -357,7 +357,7 @@ export class ChatAnalystPanel extends Panel {
   private setEnterpriseAgentEnabled(enabled: boolean): void {
     this.enterpriseAgentEnabled = enabled;
     saveEnterpriseAgentEnabled(enabled);
-    this.showWelcome();
+    if (this.history.length === 0 && !this.isStreaming) this.showWelcome();
   }
 
   private updateDashboardControlUi(): void {
