@@ -1335,6 +1335,25 @@ describe('#5857 — pure formatters cannot be tricked into forging a line', () =
     assertNoForgedBullet(out, 1, 'buildPredictionMarkets');
   });
 
+  it('buildMarketData: prioritizes a ticker named in the analyst query', () => {
+    const out = buildMarketData(
+      { quotes: [
+        { symbol: 'SPY', price: 500, changePercent: 0.2 },
+        { symbol: 'QQQ', price: 450, changePercent: 0.4 },
+        { symbol: 'AAPL', name: 'Apple Inc.', price: 250, changePercent: 1.5 },
+        { symbol: 'MSFT', price: 510, changePercent: -0.3 },
+        { symbol: 'NVDA', price: 190, changePercent: 2.1 },
+        { symbol: 'META', price: 700, changePercent: 0.8 },
+        { symbol: 'AMZN', price: 230, changePercent: 0.6 },
+      ] },
+      null,
+      'Research AAPL and the market risks around it',
+    );
+
+    const equities = out.split('Equities: ')[1] ?? '';
+    assert.ok(equities.startsWith('AAPL $250.00 (+1.50%)'), `named ticker should be ranked first; got:\n${out}`);
+  });
+
   it('buildMarketData: the equities AND commodities symbols are both guarded', () => {
     const poisonedEquity = buildMarketData(
       { quotes: [{ symbol: `SPY${FORGED_BULLET}`, price: 500, changePercent: 1.2 }] },
